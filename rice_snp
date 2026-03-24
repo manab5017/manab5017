@@ -1,3 +1,90 @@
+🧬 Reference-Based Genome Assembly Pipeline (Rice)
+📦 With Installation + Commands + Purpose
+🔰 Step 0: Install Required Tools
+
+Command:
+
+sudo apt update
+
+# Core tools
+sudo apt install -y bwa samtools bcftools bedtools seqtk emboss
+
+# Read simulator
+sudo apt install -y art-nextgen-simulation-tools
+
+# Compression tools
+sudo apt install -y tabix
+
+# BLAST
+sudo apt install -y ncbi-blast+
+
+Purpose:
+Install all software required for genome assembly, SNP detection, and annotation.
+
+🔰 Step 1: Create Working Directory
+
+Command:
+
+mkdir Genome_Assembly
+cd Genome_Assembly
+
+Purpose:
+Organize all files in one place.
+
+🌾 Step 2: Download Reference Genome
+
+Command:
+
+wget https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-56/fasta/oryza_sativa/dna/Oryza_sativa.IRGSP-1.0.dna.toplevel.fa.gz
+gunzip *.gz
+mv Oryza_sativa.IRGSP-1.0.dna.toplevel.fa rice.fa
+
+Purpose:
+Provides base genome for alignment.
+
+🧬 Step 3: Download Annotation File
+
+Command:
+
+wget https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-56/gff3/oryza_sativa/Oryza_sativa.IRGSP-1.0.56.gff3.gz
+gunzip *.gz
+mv Oryza_sativa.IRGSP-1.0.56.gff3 rice.gff3
+
+Purpose:
+Used to extract genes later.
+
+🧪 Step 4: Generate Mutated Genome (SNP Simulation)
+
+Command:
+
+seqtk mutfa -r 0.001 rice.fa > rice_mut.fa
+
+Purpose:
+Introduce SNPs artificially.
+
+🔬 Step 5: Simulate Sequencing Reads
+
+Command:
+
+art_illumina -ss HS25 -i rice.fa -p -l 150 -f 5 -o ref
+art_illumina -ss HS25 -i rice_mut.fa -p -l 150 -f 5 -o mut
+
+Purpose:
+Generate paired-end reads like real sequencing.
+
+⚙️ Step 6: Index Reference Genome
+
+Command:
+
+bwa index rice.fa
+
+Purpose:
+Prepare genome for fast mapping.
+
+🔗 Step 7: Align Reads to Reference
+
+Command:
+
 bwa mem -t 4 rice.fa mut1.fq.gz mut2.fq.gz > rice_mut.sam
 
 Purpose:
