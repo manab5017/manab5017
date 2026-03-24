@@ -1,0 +1,109 @@
+bwa mem -t 4 rice.fa mut1.fq.gz mut2.fq.gz > rice_mut.sam
+
+Purpose:
+Map reads to reference genome.
+
+📦 Step 8: Convert SAM to BAM and Sort
+
+Command:
+
+samtools view -Sb rice_mut.sam | samtools sort -o rice_mut.bam
+
+Purpose:
+Compress and organize alignment.
+
+📌 Step 9: Index BAM File
+
+Command:
+
+samtools index rice_mut.bam
+
+Purpose:
+Enable fast access and visualization.
+
+🧬 Step 10: Variant Calling (SNP Detection)
+
+Command:
+
+bcftools mpileup -f rice.fa rice_mut.bam | bcftools call -mv -Ov -o variants.vcf
+
+Purpose:
+Detect SNPs and small variants.
+
+🧾 Step 11: Compress and Index VCF
+
+Command:
+
+bgzip variants.vcf
+tabix -p vcf variants.vcf.gz
+
+Purpose:
+Prepare VCF for efficient processing.
+
+🧬 Step 12: Generate Consensus Genome
+
+Command:
+
+cat rice.fa | bcftools consensus variants.vcf.gz > assembled_genome.fa
+
+Purpose:
+Create final genome sequence.
+
+🧬 Step 13: Extract Gene Sequences
+
+Command:
+
+bedtools getfasta -fi assembled_genome.fa -bed rice.gff3 -fo genes.fa
+
+Purpose:
+Extract genes from genome.
+
+🔄 Step 14: Translate to Protein
+
+Command:
+
+transeq genes.fa proteins.fa
+
+Purpose:
+Convert DNA → protein sequences.
+
+🔍 Step 15: Download Protein Database
+
+Command:
+
+wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz
+gunzip uniprot_sprot.fasta.gz
+
+Purpose:
+Provides reference proteins for annotation.
+
+🔍 Step 16: Functional Annotation (BLAST)
+
+Command:
+
+makeblastdb -in uniprot_sprot.fasta -dbtype prot
+blastp -query proteins.fa -db uniprot_sprot.fasta -out results.txt -outfmt 6 -evalue 1e-5 -num_threads 4
+
+Purpose:
+Identify protein function.
+
+🖥️ Step 17: Visualization (IGV)
+
+Command (conceptual):
+
+Load rice.fa, rice_mut.bam, variants.vcf.gz in IGV
+
+Purpose:
+Validate SNPs visually.
+
+🎯 FINAL OUTPUT FILES
+File	Description
+rice_mut.bam	Alignment
+variants.vcf.gz	SNPs
+assembled_genome.fa	Final genome
+genes.fa	Gene sequences
+proteins.fa	Proteins
+results.txt	Annotation
+🧠 FINAL CONCEPT
+
+👉 Reference Genome + Reads → Alignment → SNP Detection → Genome Reconstruction → Annotation
