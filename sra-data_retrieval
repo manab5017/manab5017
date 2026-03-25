@@ -1,0 +1,19 @@
+Install SRA Toolkit (Linux / WSL) for sequence retrieval
+-----------------------------------------
+🔹 Step 1: Download toolkit
+wget https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/current/sratoolkit.current-ubuntu64.tar.gz
+🔹 Step 2: Extract
+tar -xvzf sratoolkit.current-ubuntu64.tar.gz
+🔹 Step 3: Move to a standard location
+mv sratoolkit.* ~/sratoolkit
+🔹 Step 4: Add to PATH
+echo 'export PATH=$PATH:~/sratoolkit/bin' >> ~/.bashrc
+source ~/.bashrc
+🔹 Step 5: Test installation
+fastq-dump --version
+✔ If installed correctly, it will show version.
+🔹 Download SRA file
+prefetch SRR37746924
+🔹 Convert to FASTQ
+fastq-dump --split-files SRR37746924
+------------------------------------------
