@@ -1,0 +1,76 @@
+COMPLETE RNA-SEQ PIPELINE (HISAT2 → ANNOTATION → DEG)
+1. Setup Directory
+mkdir RNAseq_project && cd RNAseq_project
+mkdir raw_data qc trimmed index alignments counts results annotation
+mv *.fastq.gz raw_data/
+---------------------------
+2. Quality Control (FastQC + MultiQC)
+Install
+sudo apt install fastqc
+pip install multiqc
+Run
+fastqc raw_data/*.fastq.gz -o qc/
+multiqc qc/ -o qc/
+
+Per base quality
+Adapter contamination
+---------------------------
+3. Trimming (Trimmomatic)
+Install
+sudo apt install trimmomatic
+Run trimmomatic
+(files are already trimmed)
+--------------------------
+4. Reference Genome & Annotation
+Download (Rice example)
+wget -P annotation/ https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-58/fasta/oryza_sativa/dna/Oryza_sativa.IRGSP-1.0.dna.toplevel.fa.gz
+
+wget -P annotation/ https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-58/gtf/oryza_sativa/Oryza_sativa.IRGSP-1.0.58.gtf.gz
+
+-- files are already provided (rice.fa and rice.gtf)
+--------------------------
+5. Build HISAT2 Index
+sudo apt install hisat2
+hisat2-build rice.fa rice_index
+--------------------------
+6. Alignment (HISAT2)
+
+hisat2 -p 8 -x rice_index -1 C1_R1.fastq.gz -2 C1_R2.fastq.gz -S C1.sam
+hisat2 -p 8 -x rice_index -1 C2_R1.fastq.gz -2 C2_R2.fastq.gz -S C2.sam
+hisat2 -p 8 -x rice_index -1 C3_R1.fastq.gz -2 C3_R2.fastq.gz -S C3.sam
+hisat2 -p 8 -x rice_index -1 T1_R1.fastq.gz -2 T1_R2.fastq.gz -S T1.sam
+hisat2 -p 8 -x rice_index -1 T2_R1.fastq.gz -2 T2_R2.fastq.gz -S T2.sam
+hisat2 -p 8 -x rice_index -1 T3_R1.fastq.gz -2 T3_R2.fastq.gz -S T3.sam
+
+mkdir alignments 
+transfer the .sam files to that folder
+-------------------------
+7. Convert SAM → BAM → Sort → Index
+sudo apt install samtools
+ls alignments
+samtools view -bS C1.sam | samtools sort -o C1.bam (individually)
+for f in *.sam; do samtools view -bS "$f" | samtools sort -o "${f%.sam}_sorted.bam"; done (at once)
+for f in *_sorted.bam; do samtools index "$f"; done (samtools index)
+-------------------------
+8. Read Counting (FeatureCounts)
+sudo apt install subread
+featureCounts -T 8 -p -t exon -g gene_id \
+-a rice.gtf \
+-o counts/gene_counts.txt \
+*_sorted.bam 
+
+generated gene_counts.txt should be converted to .csv using excel
+--------------------------
+9. Differential Expression (DESeq2 in R)
+--------------------------
+10. Functional Annotation (UniProt + BLAST)
+Step 1: Download UniProt
+wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz
+gunzip uniprot_sprot.fasta.gz
+Step 2: Make BLAST DB
+makeblastdb -in uniprot_sprot.fasta -dbtype prot -out uniprot_db
+Step 3: BLAST (Protein annotation)
+blastx -query annotation/Oryza_sativa.IRGSP-1.0.cdna.all.fa \
+-db uniprot_db -out annotation/blast.out \
+-evalue 1e-5 -outfmt 6 -num_threads 8
+-------------------------
