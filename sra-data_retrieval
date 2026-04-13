@@ -1,3 +1,6 @@
+by sudo cammmand
+sudo apt install sra-toolkit
+-------------------------------
 Install SRA Toolkit (Linux / WSL) for sequence retrieval
 -----------------------------------------
 🔹 Step 1: Download toolkit
