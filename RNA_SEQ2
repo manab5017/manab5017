@@ -1,0 +1,234 @@
+# ============================================================
+# RNA-seq DEG analysis from featureCounts output using DESeq2
+# Control: C1, C2, C3
+# Treatment: T1, T2, T3
+# ============================================================
+
+# Install packages only if needed
+# install.packages("BiocManager")
+# BiocManager::install(c("DESeq2", "pheatmap", "EnhancedVolcano"))
+# install.packages(c("ggplot2", "RColorBrewer"))
+
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+library(EnhancedVolcano)
+
+# ------------------------------------------------------------
+# 1. Read featureCounts file
+# ------------------------------------------------------------
+
+counts <- read.delim("gene_counts.txt",
+                     comment.char = "#",
+                     check.names = FALSE)
+
+# Set gene IDs as row names
+rownames(counts) <- counts$Geneid
+
+# Keep only raw count columns
+countData <- counts[, c("C1_sorted.bam", "C2_sorted.bam", "C3_sorted.bam",
+                        "T1_sorted.bam", "T2_sorted.bam", "T3_sorted.bam")]
+
+# Rename samples for easy interpretation
+colnames(countData) <- c("C1", "C2", "C3", "T1", "T2", "T3")
+
+# Convert to matrix
+countData <- as.matrix(countData)
+
+# ------------------------------------------------------------
+# 2. Prepare sample metadata
+# ------------------------------------------------------------
+
+colData <- data.frame(
+  row.names = colnames(countData),
+  condition = factor(c("Control", "Control", "Control",
+                       "Treatment", "Treatment", "Treatment"))
+)
+
+# ------------------------------------------------------------
+# 3. Create DESeq2 object
+# ------------------------------------------------------------
+
+dds <- DESeqDataSetFromMatrix(
+  countData = countData,
+  colData = colData,
+  design = ~ condition
+)
+
+# Remove very low-count genes
+dds <- dds[rowSums(counts(dds)) >= 10, ]
+
+# ------------------------------------------------------------
+# 4. Run DESeq2
+# ------------------------------------------------------------
+
+dds <- DESeq(dds)
+
+# Treatment vs Control
+res <- results(dds, contrast = c("condition", "Treatment", "Control"))
+
+# Order by adjusted p-value
+res <- res[order(res$padj), ]
+
+# Save full DESeq2 result
+write.csv(as.data.frame(res),
+          "DESeq2_Treatment_vs_Control_full_results.csv")
+
+# ------------------------------------------------------------
+# 5. Extract significant DEGs
+# ------------------------------------------------------------
+
+res_df <- as.data.frame(res)
+res_df$Geneid <- rownames(res_df)
+
+sig_DEGs <- subset(res_df, padj < 0.05 & abs(log2FoldChange) >= 1)
+
+upregulated <- subset(sig_DEGs, log2FoldChange >= 1)
+downregulated <- subset(sig_DEGs, log2FoldChange <= -1)
+
+write.csv(sig_DEGs,
+          "Significant_DEGs_Treatment_vs_Control.csv",
+          row.names = FALSE)
+
+write.csv(upregulated,
+          "Upregulated_DEGs.csv",
+          row.names = FALSE)
+
+write.csv(downregulated,
+          "Downregulated_DEGs.csv",
+          row.names = FALSE)
+
+# ------------------------------------------------------------
+# 6. Save normalized counts
+# ------------------------------------------------------------
+
+norm_counts <- counts(dds, normalized = TRUE)
+
+write.csv(as.data.frame(norm_counts),
+          "Normalized_counts_DESeq2.csv")
+
+# ------------------------------------------------------------
+# 7. Variance stabilizing transformation
+# ------------------------------------------------------------
+
+vsd <- vst(dds, blind = FALSE)
+
+# Save VST matrix
+write.csv(as.data.frame(assay(vsd)),
+          "VST_transformed_counts.csv")
+
+# ------------------------------------------------------------
+# 8. PCA plot
+# ------------------------------------------------------------
+
+pcaData <- plotPCA(vsd, intgroup = "condition", returnData = TRUE)
+
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+p_pca <- ggplot(pcaData, aes(PC1, PC2, color = condition, label = name)) +
+  geom_point(size = 4) +
+  geom_text(vjust = -1, size = 4) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_bw(base_size = 14) +
+  ggtitle("PCA Plot of Control and Treatment Samples")
+
+ggsave("PCA_plot_DESeq2.png", p_pca, width = 7, height = 5, dpi = 300)
+
+# ------------------------------------------------------------
+# 9. Sample distance heatmap
+# ------------------------------------------------------------
+
+sampleDists <- dist(t(assay(vsd)))
+
+sampleDistMatrix <- as.matrix(sampleDists)
+
+rownames(sampleDistMatrix) <- colnames(vsd)
+colnames(sampleDistMatrix) <- colnames(vsd)
+
+png("Sample_distance_heatmap.png", width = 1800, height = 1600, res = 300)
+
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         main = "Sample-to-Sample Distance Heatmap")
+
+dev.off()
+
+# ------------------------------------------------------------
+# 10. MA plot
+# ------------------------------------------------------------
+
+png("MA_plot_Treatment_vs_Control.png", width = 1800, height = 1600, res = 300)
+
+plotMA(res,
+       ylim = c(-6, 6),
+       main = "MA Plot: Treatment vs Control")
+
+dev.off()
+
+# ------------------------------------------------------------
+# 11. Volcano plot
+# ------------------------------------------------------------
+
+png("Volcano_plot_Treatment_vs_Control.png",
+    width = 2000,
+    height = 1800,
+    res = 300)
+
+EnhancedVolcano(res_df,
+                lab = res_df$Geneid,
+                x = "log2FoldChange",
+                y = "padj",
+                title = "Volcano Plot: Treatment vs Control",
+                subtitle = "DESeq2 differential expression analysis",
+                xlab = bquote(~Log[2]~ "fold change"),
+                ylab = bquote(~-Log[10]~ "adjusted p-value"),
+                pCutoff = 0.05,
+                FCcutoff = 1,
+                pointSize = 2.5,
+                labSize = 3.0)
+
+dev.off()
+
+# ------------------------------------------------------------
+# 12. Heatmap of top 50 significant DEGs
+# ------------------------------------------------------------
+
+top_genes <- head(rownames(res[order(res$padj), ]), 50)
+
+mat <- assay(vsd)[top_genes, ]
+
+# Scale genes row-wise
+mat_scaled <- t(scale(t(mat)))
+
+annotation_col <- data.frame(
+  condition = colData$condition
+)
+
+rownames(annotation_col) <- rownames(colData)
+
+png("Top_50_DEGs_heatmap.png",
+    width = 2200,
+    height = 2600,
+    res = 300)
+
+pheatmap(mat_scaled,
+         annotation_col = annotation_col,
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         fontsize_row = 6,
+         main = "Heatmap of Top 50 Differentially Expressed Genes")
+
+dev.off()
+
+# ------------------------------------------------------------
+# 13. Summary of DEG numbers
+# ------------------------------------------------------------
+
+cat("Total significant DEGs:", nrow(sig_DEGs), "\n")
+cat("Upregulated genes:", nrow(upregulated), "\n")
+cat("Downregulated genes:", nrow(downregulated), "\n")
