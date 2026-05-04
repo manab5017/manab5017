@@ -1,6 +1,11 @@
 # ============================================================
-# Extract DEG CDS sequences using gene:Os01gXXXXXXX from CDS FASTA
+# ONE COMPLETE SCRIPT:
+# Extract DEG CDS sequences + merge UniProt annotation
 # ============================================================
+
+# ------------------------------------------------------------
+# 1. Install and load required package
+# ------------------------------------------------------------
 
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
@@ -12,40 +17,88 @@ if (!requireNamespace("Biostrings", quietly = TRUE)) {
 
 library(Biostrings)
 
-# Input files
-deg_file <- "DESeq2_Treatment_vs_Control_full_results.csv"
-cds_fasta_file <- "rice_cds.fa"
+# ------------------------------------------------------------
+# 2. Input files
+# ------------------------------------------------------------
+# Change these file names if needed
 
-# Read DEG table
+deg_file <- "Significant_DEGs_Treatment_vs_Control.csv"
+
+# Select your CDS FASTA manually
+# Example header:
+# >Os01t0169900-01 cds chromosome:IRGSP-1.0:1:3591827:3596152:-1 gene:Os01g0169900 ...
+cds_fasta_file <- file.choose()
+
+# Optional DIAMOND annotation file
+# If this file exists, the script will merge annotation automatically
+diamond_annotation_file <- "DEG_CDS_uniprot_annotation.tsv"
+
+# ------------------------------------------------------------
+# 3. Read DEG table
+# ------------------------------------------------------------
+
 deg <- read.csv(deg_file, stringsAsFactors = FALSE)
 
-# Clean DEG IDs
-deg_ids <- unique(trimws(deg$Geneid))
-deg_ids <- sub("\\..*", "", deg_ids)
+# Check Geneid column
+if (!"Geneid" %in% colnames(deg)) {
+  stop("Column 'Geneid' not found in DEG file. Please check your DEG table.")
+}
 
-# Read CDS FASTA
+# Clean DEG IDs
+deg$Geneid <- trimws(deg$Geneid)
+deg$Geneid <- sub("\\..*", "", deg$Geneid)
+
+deg_ids <- unique(deg$Geneid)
+deg_ids <- deg_ids[!is.na(deg_ids) & deg_ids != ""]
+
+cat("Total unique DEG IDs:", length(deg_ids), "\n")
+
+# ------------------------------------------------------------
+# 4. Read CDS FASTA
+# ------------------------------------------------------------
+
 cds <- readDNAStringSet(cds_fasta_file)
 
-# Original FASTA headers
+cat("Total CDS records in FASTA:", length(cds), "\n")
+
 original_headers <- names(cds)
 
-# Extract gene ID after gene:
-gene_ids_from_header <- sub(".*gene:(Os[0-9]{2}g[0-9]{7}).*", "\\1", original_headers)
+# ------------------------------------------------------------
+# 5. Extract gene ID from CDS FASTA header
+# ------------------------------------------------------------
+# This extracts Os gene ID from header field like:
+# gene:Os01g0169900
 
-# Replace failed extractions with NA
-gene_ids_from_header[!grepl("^Os[0-9]{2}g[0-9]{7}$", gene_ids_from_header)] <- NA
+gene_ids_from_header <- sub(
+  ".*gene:(Os[0-9]{2}g[0-9]{7}).*",
+  "\\1",
+  original_headers
+)
 
-# Assign gene IDs as CDS names
+# Mark failed extraction as NA
+gene_ids_from_header[
+  !grepl("^Os[0-9]{2}g[0-9]{7}$", gene_ids_from_header)
+] <- NA
+
+# Assign extracted gene IDs as sequence names
 names(cds) <- gene_ids_from_header
 
-# Remove CDS records without proper gene ID
+# Remove records without gene ID
 cds_clean <- cds[!is.na(names(cds))]
 
-# Keep longest CDS if one gene has multiple transcript isoforms
+cat("CDS records with valid gene IDs:", length(cds_clean), "\n")
+
+# ------------------------------------------------------------
+# 6. Keep longest CDS per gene
+# ------------------------------------------------------------
+# Many genes may have more than one transcript/CDS.
+# This keeps the longest CDS for each gene.
+
 cds_info <- data.frame(
   Geneid = names(cds_clean),
   Length = width(cds_clean),
-  Index = seq_along(cds_clean)
+  Index = seq_along(cds_clean),
+  stringsAsFactors = FALSE
 )
 
 cds_info <- cds_info[order(cds_info$Geneid, -cds_info$Length), ]
@@ -53,17 +106,29 @@ cds_info <- cds_info[!duplicated(cds_info$Geneid), ]
 
 cds_longest <- cds_clean[cds_info$Index]
 
-# Match DEG IDs with CDS gene IDs
+cat("Unique genes after keeping longest CDS:", length(cds_longest), "\n")
+
+# ------------------------------------------------------------
+# 7. Match DEG IDs with CDS IDs
+# ------------------------------------------------------------
+
 matched_ids <- intersect(deg_ids, names(cds_longest))
 unmatched_ids <- setdiff(deg_ids, names(cds_longest))
 
-# Extract DEG CDS sequences
+cat("Matched DEG CDS:", length(matched_ids), "\n")
+cat("Unmatched DEG IDs:", length(unmatched_ids), "\n")
+
+# ------------------------------------------------------------
+# 8. Extract DEG CDS sequences
+# ------------------------------------------------------------
+
 deg_cds <- cds_longest[matched_ids]
 
-# Save extracted CDS FASTA
-writeXStringSet(deg_cds, filepath = "DEG_CDS.fasta")
+writeXStringSet(
+  deg_cds,
+  filepath = "DEG_CDS.fasta"
+)
 
-# Save unmatched IDs
 write.table(
   unmatched_ids,
   file = "Unmatched_DEG_CDS_IDs.txt",
@@ -72,10 +137,10 @@ write.table(
   col.names = FALSE
 )
 
-# Save header check file
 header_check <- data.frame(
   Original_CDS_Header = original_headers,
-  Extracted_Gene_ID = gene_ids_from_header
+  Extracted_Gene_ID = gene_ids_from_header,
+  stringsAsFactors = FALSE
 )
 
 write.csv(
@@ -84,11 +149,115 @@ write.csv(
   row.names = FALSE
 )
 
-# Summary
-cat("Total DEG IDs:", length(deg_ids), "\n")
-cat("Total CDS records:", length(cds), "\n")
-cat("CDS records with gene IDs:", length(cds_clean), "\n")
-cat("Unique genes after keeping longest CDS:", length(cds_longest), "\n")
-cat("Matched DEG CDS:", length(matched_ids), "\n")
-cat("Unmatched DEG IDs:", length(unmatched_ids), "\n")
-cat("Saved file: DEG_CDS.fasta\n")
+cat("Saved: DEG_CDS.fasta\n")
+cat("Saved: Unmatched_DEG_CDS_IDs.txt\n")
+cat("Saved: CDS_header_geneID_check.csv\n")
+
+# ------------------------------------------------------------
+# 9. Save DIAMOND command for later use
+# ------------------------------------------------------------
+
+diamond_commands <- c(
+  "diamond makedb --in uniprot_viridiplantae.fasta -d uniprot_plants",
+  "",
+  "diamond blastx \\",
+  "  -d uniprot_plants.dmnd \\",
+  "  -q DEG_CDS.fasta \\",
+  "  -o DEG_CDS_uniprot_annotation.tsv \\",
+  "  -f 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore stitle \\",
+  "  --evalue 1e-5 \\",
+  "  --max-target-seqs 1 \\",
+  "  --threads 8"
+)
+
+writeLines(diamond_commands, "Run_DIAMOND_commands.txt")
+
+cat("Saved: Run_DIAMOND_commands.txt\n")
+
+# ------------------------------------------------------------
+# 10. Optional: merge DIAMOND UniProt annotation if file exists
+# ------------------------------------------------------------
+
+if (file.exists(diamond_annotation_file)) {
+  
+  anno <- read.delim(
+    diamond_annotation_file,
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  
+  colnames(anno) <- c(
+    "Geneid",
+    "UniProt_hit",
+    "Percent_identity",
+    "Alignment_length",
+    "Mismatch",
+    "Gapopen",
+    "Query_start",
+    "Query_end",
+    "Subject_start",
+    "Subject_end",
+    "Evalue",
+    "Bitscore",
+    "Protein_description"
+  )
+  
+  anno$Geneid <- trimws(anno$Geneid)
+  
+  deg_annotated <- merge(
+    deg,
+    anno,
+    by = "Geneid",
+    all.x = TRUE
+  )
+  
+  deg_annotated <- deg_annotated[order(deg_annotated$padj), ]
+  
+  write.csv(
+    deg_annotated,
+    "Annotated_DEGs_with_UniProt.csv",
+    row.names = FALSE
+  )
+  
+  up <- subset(
+    deg_annotated,
+    padj < 0.05 & log2FoldChange >= 1
+  )
+  
+  down <- subset(
+    deg_annotated,
+    padj < 0.05 & log2FoldChange <= -1
+  )
+  
+  write.csv(
+    up,
+    "Annotated_Upregulated_DEGs.csv",
+    row.names = FALSE
+  )
+  
+  write.csv(
+    down,
+    "Annotated_Downregulated_DEGs.csv",
+    row.names = FALSE
+  )
+  
+  cat("DIAMOND annotation file found and merged.\n")
+  cat("Annotated DEGs:", sum(!is.na(deg_annotated$UniProt_hit)), "\n")
+  cat("Unannotated DEGs:", sum(is.na(deg_annotated$UniProt_hit)), "\n")
+  cat("Saved: Annotated_DEGs_with_UniProt.csv\n")
+  cat("Saved: Annotated_Upregulated_DEGs.csv\n")
+  cat("Saved: Annotated_Downregulated_DEGs.csv\n")
+  
+} else {
+  
+  cat("\nDIAMOND annotation file not found yet.\n")
+  cat("First run the commands saved in: Run_DIAMOND_commands.txt\n")
+  cat("After DIAMOND finishes, rerun this same R script to merge annotation.\n")
+}
+
+# ------------------------------------------------------------
+# 11. Final summary
+# ------------------------------------------------------------
+
+cat("\nPROCESS COMPLETED\n")
+cat("Main output for DIAMOND:", "DEG_CDS.fasta", "\n")
