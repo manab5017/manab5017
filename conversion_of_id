@@ -1,0 +1,94 @@
+# ============================================================
+# Extract DEG CDS sequences using gene:Os01gXXXXXXX from CDS FASTA
+# ============================================================
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+if (!requireNamespace("Biostrings", quietly = TRUE)) {
+  BiocManager::install("Biostrings")
+}
+
+library(Biostrings)
+
+# Input files
+deg_file <- "DESeq2_Treatment_vs_Control_full_results.csv"
+cds_fasta_file <- "rice_cds.fa"
+
+# Read DEG table
+deg <- read.csv(deg_file, stringsAsFactors = FALSE)
+
+# Clean DEG IDs
+deg_ids <- unique(trimws(deg$Geneid))
+deg_ids <- sub("\\..*", "", deg_ids)
+
+# Read CDS FASTA
+cds <- readDNAStringSet(cds_fasta_file)
+
+# Original FASTA headers
+original_headers <- names(cds)
+
+# Extract gene ID after gene:
+gene_ids_from_header <- sub(".*gene:(Os[0-9]{2}g[0-9]{7}).*", "\\1", original_headers)
+
+# Replace failed extractions with NA
+gene_ids_from_header[!grepl("^Os[0-9]{2}g[0-9]{7}$", gene_ids_from_header)] <- NA
+
+# Assign gene IDs as CDS names
+names(cds) <- gene_ids_from_header
+
+# Remove CDS records without proper gene ID
+cds_clean <- cds[!is.na(names(cds))]
+
+# Keep longest CDS if one gene has multiple transcript isoforms
+cds_info <- data.frame(
+  Geneid = names(cds_clean),
+  Length = width(cds_clean),
+  Index = seq_along(cds_clean)
+)
+
+cds_info <- cds_info[order(cds_info$Geneid, -cds_info$Length), ]
+cds_info <- cds_info[!duplicated(cds_info$Geneid), ]
+
+cds_longest <- cds_clean[cds_info$Index]
+
+# Match DEG IDs with CDS gene IDs
+matched_ids <- intersect(deg_ids, names(cds_longest))
+unmatched_ids <- setdiff(deg_ids, names(cds_longest))
+
+# Extract DEG CDS sequences
+deg_cds <- cds_longest[matched_ids]
+
+# Save extracted CDS FASTA
+writeXStringSet(deg_cds, filepath = "DEG_CDS.fasta")
+
+# Save unmatched IDs
+write.table(
+  unmatched_ids,
+  file = "Unmatched_DEG_CDS_IDs.txt",
+  quote = FALSE,
+  row.names = FALSE,
+  col.names = FALSE
+)
+
+# Save header check file
+header_check <- data.frame(
+  Original_CDS_Header = original_headers,
+  Extracted_Gene_ID = gene_ids_from_header
+)
+
+write.csv(
+  header_check,
+  "CDS_header_geneID_check.csv",
+  row.names = FALSE
+)
+
+# Summary
+cat("Total DEG IDs:", length(deg_ids), "\n")
+cat("Total CDS records:", length(cds), "\n")
+cat("CDS records with gene IDs:", length(cds_clean), "\n")
+cat("Unique genes after keeping longest CDS:", length(cds_longest), "\n")
+cat("Matched DEG CDS:", length(matched_ids), "\n")
+cat("Unmatched DEG IDs:", length(unmatched_ids), "\n")
+cat("Saved file: DEG_CDS.fasta\n")
