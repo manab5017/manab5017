@@ -1,0 +1,247 @@
+LUAD BULK RNA-seq DATA DOWNLOAD COMMANDS
+Dataset: GSE86958
+Samples: 3 Cancer + 3 Control
+Reference: Human GRCh38
+Annotation: GENCODE v50
+
+============================================================
+1. CREATE PROJECT DIRECTORIES
+============================================================
+
+mkdir -p ~/LUAD_RNAseq/{raw_sra,fastq,reference,qc,trimmed,hisat2_index,alignment,counts,results}
+
+cd ~/LUAD_RNAseq
+
+
+============================================================
+2. CHECK SRA TOOLKIT
+============================================================
+
+prefetch --version
+
+fasterq-dump --version
+
+
+============================================================
+3. DOWNLOAD CANCER SAMPLE 1
+============================================================
+
+prefetch SRR4244296
+
+
+============================================================
+4. DOWNLOAD CANCER SAMPLE 2
+============================================================
+
+prefetch SRR4244297
+
+
+============================================================
+5. DOWNLOAD CANCER SAMPLE 3
+============================================================
+
+prefetch SRR4244298
+
+
+============================================================
+6. DOWNLOAD CONTROL SAMPLE 1
+============================================================
+
+prefetch SRR4244302
+
+
+============================================================
+7. DOWNLOAD CONTROL SAMPLE 2
+============================================================
+
+prefetch SRR4244303
+
+
+============================================================
+8. DOWNLOAD CONTROL SAMPLE 3
+============================================================
+
+prefetch SRR4244304
+
+
+============================================================
+9. CONVERT CANCER 1 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244296 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+10. CONVERT CANCER 2 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244297 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+11. CONVERT CANCER 3 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244298 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+12. CONVERT CONTROL 1 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244302 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+13. CONVERT CONTROL 2 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244303 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+14. CONVERT CONTROL 3 TO FASTQ
+============================================================
+
+fasterq-dump SRR4244304 --split-files --threads 8 --outdir ~/LUAD_RNAseq/fastq
+
+
+============================================================
+15. CHECK FASTQ FILES
+============================================================
+
+ls -lh ~/LUAD_RNAseq/fastq/
+
+
+============================================================
+16. COMPRESS FASTQ FILES
+============================================================
+
+gzip ~/LUAD_RNAseq/fastq/*.fastq
+
+
+============================================================
+17. RENAME CANCER SAMPLES
+============================================================
+
+cd ~/LUAD_RNAseq/fastq
+
+mv SRR4244296_1.fastq.gz Cancer1_R1.fastq.gz
+mv SRR4244296_2.fastq.gz Cancer1_R2.fastq.gz
+
+mv SRR4244297_1.fastq.gz Cancer2_R1.fastq.gz
+mv SRR4244297_2.fastq.gz Cancer2_R2.fastq.gz
+
+mv SRR4244298_1.fastq.gz Cancer3_R1.fastq.gz
+mv SRR4244298_2.fastq.gz Cancer3_R2.fastq.gz
+
+
+============================================================
+18. RENAME CONTROL SAMPLES
+============================================================
+
+mv SRR4244302_1.fastq.gz Control1_R1.fastq.gz
+mv SRR4244302_2.fastq.gz Control1_R2.fastq.gz
+
+mv SRR4244303_1.fastq.gz Control2_R1.fastq.gz
+mv SRR4244303_2.fastq.gz Control2_R2.fastq.gz
+
+mv SRR4244304_1.fastq.gz Control3_R1.fastq.gz
+mv SRR4244304_2.fastq.gz Control3_R2.fastq.gz
+
+
+============================================================
+19. DOWNLOAD GRCh38 REFERENCE GENOME
+============================================================
+
+cd ~/LUAD_RNAseq/reference
+
+wget -c https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/GRCh38.primary_assembly.genome.fa.gz
+
+gunzip GRCh38.primary_assembly.genome.fa.gz
+
+
+============================================================
+20. DOWNLOAD GENCODE v50 GTF
+============================================================
+
+wget -c https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz
+
+gunzip gencode.v50.annotation.gtf.gz
+
+
+============================================================
+21. DOWNLOAD GENCODE v50 PROTEIN FASTA
+============================================================
+
+wget -c https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.pc_translations.fa.gz
+
+gunzip gencode.v50.pc_translations.fa.gz
+
+
+============================================================
+22. DOWNLOAD GENCODE v50 TRANSCRIPT FASTA
+============================================================
+
+wget -c https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.transcripts.fa.gz
+
+gunzip gencode.v50.transcripts.fa.gz
+
+
+============================================================
+23. CHECK REFERENCE FILES
+============================================================
+
+ls -lh ~/LUAD_RNAseq/reference/
+
+
+============================================================
+EXPECTED FASTQ FILES
+============================================================
+
+Cancer1_R1.fastq.gz
+Cancer1_R2.fastq.gz
+Cancer2_R1.fastq.gz
+Cancer2_R2.fastq.gz
+Cancer3_R1.fastq.gz
+Cancer3_R2.fastq.gz
+
+Control1_R1.fastq.gz
+Control1_R2.fastq.gz
+Control2_R1.fastq.gz
+Control2_R2.fastq.gz
+Control3_R1.fastq.gz
+Control3_R2.fastq.gz
+
+
+============================================================
+EXPECTED REFERENCE FILES
+============================================================
+
+GRCh38.primary_assembly.genome.fa
+gencode.v50.annotation.gtf
+gencode.v50.pc_translations.fa
+gencode.v50.transcripts.fa
+
+
+============================================================
+NEXT PIPELINE STEPS
+============================================================
+
+1. FastQC
+2. MultiQC
+3. fastp trimming
+4. Post-trimming FastQC
+5. HISAT2 index
+6. HISAT2 alignment
+7. SAM to BAM
+8. BAM sorting and indexing
+9. featureCounts
+10. Count matrix preparation
+11. DESeq2
+12. PCA
+13. Heatmap
+14. Volcano plot
+15. GO enrichment
+16. KEGG enrichment
+
