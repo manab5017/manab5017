@@ -8,7 +8,7 @@ Annotation: GENCODE v50
 1. CREATE PROJECT DIRECTORIES
 ============================================================
 
-mkdir -p ~/LUAD_RNAseq/{raw_sra,fastq,reference,qc,trimmed,hisat2_index,alignment,counts,results}
+mkdir -p ./LUAD_RNAseq/{raw_sra,fastq,reference,qc,trimmed,hisat2_index,alignment,counts,results}
 
 cd ~/LUAD_RNAseq
 
