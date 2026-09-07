@@ -224,24 +224,92 @@ gencode.v50.pc_translations.fa
 gencode.v50.transcripts.fa
 
 
-============================================================
-NEXT PIPELINE STEPS
-============================================================
 
-1. FastQC
-2. MultiQC
-3. fastp trimming
-4. Post-trimming FastQC
-5. HISAT2 index
-6. HISAT2 alignment
-7. SAM to BAM
-8. BAM sorting and indexing
-9. featureCounts
-10. Count matrix preparation
-11. DESeq2
-12. PCA
-13. Heatmap
-14. Volcano plot
-15. GO enrichment
-16. KEGG enrichment
+======================================================
+TRIMMING
+
+===============installing trimmomatic=================
+sudo apt install trimmomatic 
+
+===============checking version=======================
+TrimmomaticPE -h
+
+===============running trimmomatic====================
+TrimmomaticPE -threads 18 \
+Cancer1_R1.fastq.gz \
+Cancer1_R2.fastq.gz \
+Cancer1_R1_paired.fastq.gz \
+Cancer1_R1_unpaired.fastq.gz \
+Cancer1_R2_paired.fastq.gz \
+Cancer1_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Cancer2_R1.fastq.gz \
+Cancer2_R2.fastq.gz \
+Cancer2_R1_paired.fastq.gz \
+Cancer2_R1_unpaired.fastq.gz \
+Cancer2_R2_paired.fastq.gz \
+Cancer2_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Cancer3_R1.fastq.gz \
+Cancer3_R2.fastq.gz \
+Cancer3_R1_paired.fastq.gz \
+Cancer3_R1_unpaired.fastq.gz \
+Cancer3_R2_paired.fastq.gz \
+Cancer3_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control1_R1.fastq.gz \
+Control1_R2.fastq.gz \
+Control1_R1_paired.fastq.gz \
+Control1_R1_unpaired.fastq.gz \
+Control1_R2_paired.fastq.gz \
+Control1_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control2_R1.fastq.gz \
+Control2_R2.fastq.gz \
+Control2_R1_paired.fastq.gz \
+Control2_R1_unpaired.fastq.gz \
+Control2_R2_paired.fastq.gz \
+Control2_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control3_R1.fastq.gz \
+Control3_R2.fastq.gz \
+Control3_R1_paired.fastq.gz \
+Control3_R1_unpaired.fastq.gz \
+Control3_R2_paired.fastq.gz \
+Control3_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+=====================================================
+
+===============installing fastp======================
+
+
+sudo apt install fastp
+
+===============checking version======================
+
+fastp -v
+
+===============Running fastp=========================
+fastp -i Cancer1_R1.fastq.gz -I Cancer1_R2.fastq.gz -o Cancer1_R1_trimmed2.fastq.gz -O Cancer1_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer1_fastp.html -j Cancer1_fastp.json
+fastp -i Cancer2_R1.fastq.gz -I Cancer2_R2.fastq.gz -o Cancer2_R1_trimmed2.fastq.gz -O Cancer2_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer2_fastp.html -j Cancer2_fastp.json
+fastp -i Cancer3_R1.fastq.gz -I Cancer3_R2.fastq.gz -o Cancer3_R1_trimmed2.fastq.gz -O Cancer3_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer3_fastp.html -j Cancer3_fastp.json
+fastp -i Control1_R1.fastq.gz -I Control1_R2.fastq.gz -o Control1_R1_trimmed2.fastq.gz -O Control1_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control1_fastp.html -j Control1_fastp.json
+fastp -i Control2_R1.fastq.gz -I Control2_R2.fastq.gz -o Control2_R1_trimmed2.fastq.gz -O Control2_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control2_fastp.html -j Control2_fastp.json
+fastp -i Control3_R1.fastq.gz -I Control3_R2.fastq.gz -o Control3_R1_trimmed2.fastq.gz -O Control3_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control3_fastp.html -j Control3_fastp.json
 
