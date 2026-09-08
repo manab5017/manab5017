@@ -1,0 +1,128 @@
+RNA-seq QC COMMANDS
+Samples: Cancer1-3 and Control1-3
+Paired-end FASTQ files
+Run these commands from the folder containing the FASTQ files.
+
+============================================================
+1. CREATE OUTPUT DIRECTORIES
+============================================================
+
+mkdir -p QC/raw_fastqc QC/raw_falco QC/trimmed_fastqc QC/trimmed_falco QC/multiqc trimmed
+
+============================================================
+2. FASTQC - RAW READS
+============================================================
+
+fastqc Cancer1_R1.fastq.gz Cancer1_R2.fastq.gz -o QC/raw_fastqc -t 4
+fastqc Cancer2_R1.fastq.gz Cancer2_R2.fastq.gz -o QC/raw_fastqc -t 4
+fastqc Cancer3_R1.fastq.gz Cancer3_R2.fastq.gz -o QC/raw_fastqc -t 4
+fastqc Control1_R1.fastq.gz Control1_R2.fastq.gz -o QC/raw_fastqc -t 4
+fastqc Control2_R1.fastq.gz Control2_R2.fastq.gz -o QC/raw_fastqc -t 4
+fastqc Control3_R1.fastq.gz Control3_R2.fastq.gz -o QC/raw_fastqc -t 4
+
+============================================================
+3. FALCO - RAW READS
+============================================================
+
+falco -o QC/raw_falco Cancer1_R1.fastq.gz Cancer1_R2.fastq.gz
+falco -o QC/raw_falco Cancer2_R1.fastq.gz Cancer2_R2.fastq.gz
+falco -o QC/raw_falco Cancer3_R1.fastq.gz Cancer3_R2.fastq.gz
+falco -o QC/raw_falco Control1_R1.fastq.gz Control1_R2.fastq.gz
+falco -o QC/raw_falco Control2_R1.fastq.gz Control2_R2.fastq.gz
+falco -o QC/raw_falco Control3_R1.fastq.gz Control3_R2.fastq.gz
+
+
+============================================================
+4. MULTIQC - COMBINE QC REPORTS
+============================================================
+
+multiqc QC/raw_fastqc QC/raw_falco QC/trimmed_fastqc QC/trimmed_falco trimmed -o QC/multiqc
+
+
+======================================================
+5.TRIMMING
+
+===============installing trimmomatic=================
+sudo apt install trimmomatic 
+
+===============checking version=======================
+TrimmomaticPE -h
+
+===============running trimmomatic====================
+TrimmomaticPE -threads 18 \
+Cancer1_R1.fastq.gz \
+Cancer1_R2.fastq.gz \
+Cancer1_R1_paired.fastq.gz \
+Cancer1_R1_unpaired.fastq.gz \
+Cancer1_R2_paired.fastq.gz \
+Cancer1_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Cancer2_R1.fastq.gz \
+Cancer2_R2.fastq.gz \
+Cancer2_R1_paired.fastq.gz \
+Cancer2_R1_unpaired.fastq.gz \
+Cancer2_R2_paired.fastq.gz \
+Cancer2_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Cancer3_R1.fastq.gz \
+Cancer3_R2.fastq.gz \
+Cancer3_R1_paired.fastq.gz \
+Cancer3_R1_unpaired.fastq.gz \
+Cancer3_R2_paired.fastq.gz \
+Cancer3_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control1_R1.fastq.gz \
+Control1_R2.fastq.gz \
+Control1_R1_paired.fastq.gz \
+Control1_R1_unpaired.fastq.gz \
+Control1_R2_paired.fastq.gz \
+Control1_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control2_R1.fastq.gz \
+Control2_R2.fastq.gz \
+Control2_R1_paired.fastq.gz \
+Control2_R1_unpaired.fastq.gz \
+Control2_R2_paired.fastq.gz \
+Control2_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+
+TrimmomaticPE -threads 18 \
+Control3_R1.fastq.gz \
+Control3_R2.fastq.gz \
+Control3_R1_paired.fastq.gz \
+Control3_R1_unpaired.fastq.gz \
+Control3_R2_paired.fastq.gz \
+Control3_R2_unpaired.fastq.gz \
+SLIDINGWINDOW:4:20 \
+MINLEN:36
+=====================================================
+
+===============installing fastp======================
+
+
+sudo apt install fastp
+
+===============checking version======================
+
+fastp -v
+
+===============Running fastp=========================
+fastp -i Cancer1_R1.fastq.gz -I Cancer1_R2.fastq.gz -o Cancer1_R1_trimmed2.fastq.gz -O Cancer1_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer1_fastp.html -j Cancer1_fastp.json
+fastp -i Cancer2_R1.fastq.gz -I Cancer2_R2.fastq.gz -o Cancer2_R1_trimmed2.fastq.gz -O Cancer2_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer2_fastp.html -j Cancer2_fastp.json
+fastp -i Cancer3_R1.fastq.gz -I Cancer3_R2.fastq.gz -o Cancer3_R1_trimmed2.fastq.gz -O Cancer3_R2_trimmed2.fastq.gz -q 20 -l 36 -h Cancer3_fastp.html -j Cancer3_fastp.json
+fastp -i Control1_R1.fastq.gz -I Control1_R2.fastq.gz -o Control1_R1_trimmed2.fastq.gz -O Control1_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control1_fastp.html -j Control1_fastp.json
+fastp -i Control2_R1.fastq.gz -I Control2_R2.fastq.gz -o Control2_R1_trimmed2.fastq.gz -O Control2_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control2_fastp.html -j Control2_fastp.json
+fastp -i Control3_R1.fastq.gz -I Control3_R2.fastq.gz -o Control3_R1_trimmed2.fastq.gz -O Control3_R2_trimmed2.fastq.gz -q 20 -l 36 -h Control3_fastp.html -j Control3_fastp.json
