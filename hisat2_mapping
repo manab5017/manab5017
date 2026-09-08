@@ -212,14 +212,14 @@ ls -lh *_R2_trimmed2.fastq.gz
 # Cancer3_R1_trimmed2.fastq.gz
 # Cancer3_R2_trimmed2.fastq.gz
 #
-# Control1_R1_trimmed2.fastq.gz
-# Control1_R2_trimmed2.fastq.gz
+# Control1_R1_trimmed.fastq.gz
+# Control1_R2_trimmed.fastq.gz
 #
-# Control2_R1_trimmed2.fastq.gz
-# Control2_R2_trimmed2.fastq.gz
+# Control2_R1_trimmed.fastq.gz
+# Control2_R2_trimmed.fastq.gz
 #
-# Control3_R1_trimmed2.fastq.gz
-# Control3_R2_trimmed2.fastq.gz
+# Control3_R1_trimmed.fastq.gz
+# Control3_R2_trimmed.fastq.gz
 ####################################################################
 
 
@@ -229,8 +229,8 @@ ls -lh *_R2_trimmed2.fastq.gz
 
 hisat2 -p 18 \
 -x hisat2_index/GRCh38 \
--1 Cancer1_R1_trimmed2.fastq.gz \
--2 Cancer1_R2_trimmed2.fastq.gz \
+-1 Cancer1_R1_trimmed.fastq.gz \
+-2 Cancer1_R2_trimmed.fastq.gz \
 -S alignment/Cancer1.sam \
 2> alignment_logs/Cancer1_hisat2.log
 
@@ -241,9 +241,9 @@ hisat2 -p 18 \
 
 hisat2 -p 18 \
 -x hisat2_index/GRCh38 \
--1 Cancer2_R1_trimmed2.fastq.gz \
--2 Cancer2_R2_trimmed2.fastq.gz \
--S alignment/Cancer2.sam \
+-1 Cancer2_R1_trimmed.fastq.gz \
+-2 Cancer2_R2_trimmed.fastq.gz \
+-S alignment/Cancer.sam \
 2> alignment_logs/Cancer2_hisat2.log
 
 
@@ -253,8 +253,8 @@ hisat2 -p 18 \
 
 hisat2 -p 18 \
 -x hisat2_index/GRCh38 \
--1 Cancer3_R1_trimmed2.fastq.gz \
--2 Cancer3_R2_trimmed2.fastq.gz \
+-1 Cancer3_R1_trimmed.fastq.gz \
+-2 Cancer3_R2_trimmed.fastq.gz \
 -S alignment/Cancer3.sam \
 2> alignment_logs/Cancer3_hisat2.log
 
@@ -265,8 +265,8 @@ hisat2 -p 18 \
 
 hisat2 -p 18 \
 -x hisat2_index/GRCh38 \
--1 Control1_R1_trimmed2.fastq.gz \
--2 Control1_R2_trimmed2.fastq.gz \
+-1 Control1_R1_trimmed.fastq.gz \
+-2 Control1_R2_trimmed.fastq.gz \
 -S alignment/Control1.sam \
 2> alignment_logs/Control1_hisat2.log
 
@@ -278,8 +278,8 @@ hisat2 -p 18 \
 hisat2 -p 18 \
 -x hisat2_index/GRCh38 \
 -1 Control2_R1_trimmed2.fastq.gz \
--2 Control2_R2_trimmed2.fastq.gz \
--S alignment/Control2.sam \
+-2 Control2_R2_trimmed.fastq.gz \
+-S alignment/Control.sam \
 2> alignment_logs/Control2_hisat2.log
 
 
