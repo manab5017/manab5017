@@ -1,0 +1,189 @@
+============================================================
+HUMAN GRCh38 + GENCODE v50 REFERENCE DOWNLOAD
+RNA-seq / HISAT2
+============================================================
+
+1. CREATE REFERENCE DIRECTORY
+============================================================
+
+mkdir -p reference
+cd reference
+
+
+============================================================
+2. DOWNLOAD GRCh38 PRIMARY ASSEMBLY GENOME
+============================================================
+
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/GRCh38.primary_assembly.genome.fa.gz
+
+
+============================================================
+3. DOWNLOAD GENCODE v50 GENE ANNOTATION (GTF)
+============================================================
+
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz
+
+
+============================================================
+4. DOWNLOAD GENCODE v50 TRANSCRIPT FASTA
+============================================================
+
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.transcripts.fa.gz
+
+
+============================================================
+5. DOWNLOAD GENCODE v50 PROTEIN-CODING TRANSCRIPT FASTA
+============================================================
+
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.pc_transcripts.fa.gz
+
+
+============================================================
+6. DOWNLOAD GENCODE v50 PROTEIN TRANSLATIONS
+============================================================
+
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.pc_translations.fa.gz
+
+
+============================================================
+7. EXTRACT GENOME FASTA
+============================================================
+
+gunzip GRCh38.primary_assembly.genome.fa.gz
+
+
+============================================================
+8. EXTRACT GTF
+============================================================
+
+gunzip gencode.v50.annotation.gtf.gz
+
+
+============================================================
+9. EXTRACT TRANSCRIPT FASTA
+============================================================
+
+gunzip gencode.v50.transcripts.fa.gz
+
+
+============================================================
+10. EXTRACT PROTEIN-CODING TRANSCRIPT FASTA
+============================================================
+
+gunzip gencode.v50.pc_transcripts.fa.gz
+
+
+============================================================
+11. EXTRACT PROTEIN FASTA
+============================================================
+
+gunzip gencode.v50.pc_translations.fa.gz
+
+
+============================================================
+12. RENAME FILES FOR EASY USE
+============================================================
+
+mv GRCh38.primary_assembly.genome.fa GRCh38.fa
+
+mv gencode.v50.annotation.gtf GRCh38.gtf
+
+mv gencode.v50.transcripts.fa GRCh38_transcripts.fa
+
+mv gencode.v50.pc_transcripts.fa GRCh38_pc_transcripts.fa
+
+mv gencode.v50.pc_translations.fa GRCh38_proteins.fa
+
+
+============================================================
+13. CHECK DOWNLOADED FILES
+============================================================
+
+ls -lh
+
+
+============================================================
+14. CHECK GENOME
+============================================================
+
+grep "^>" GRCh38.fa | head
+
+
+============================================================
+15. CHECK GTF
+============================================================
+
+head -n 20 GRCh38.gtf
+
+
+============================================================
+16. COUNT GENES IN GTF
+============================================================
+
+grep -v "^#" GRCh38.gtf | \
+awk -F'\t' '$3=="gene"' | wc -l
+
+
+============================================================
+17. CHECK TRANSCRIPT FASTA
+============================================================
+
+grep "^>" GRCh38_transcripts.fa | head
+
+
+============================================================
+18. CHECK PROTEIN FASTA
+============================================================
+
+grep "^>" GRCh38_proteins.fa | head
+
+
+============================================================
+FINAL REFERENCE DIRECTORY
+============================================================
+
+reference/
+│
+├── GRCh38.fa
+├── GRCh38.gtf
+├── GRCh38_transcripts.fa
+├── GRCh38_pc_transcripts.fa
+└── GRCh38_proteins.fa
+
+
+============================================================
+FILES USED FOR YOUR RNA-seq WORKFLOW
+============================================================
+
+HISAT2 GENOME INDEX:
+    GRCh38.fa
+
+GENE ANNOTATION / QUANTIFICATION:
+    GRCh38.gtf
+
+TRANSCRIPT-LEVEL ANALYSIS:
+    GRCh38_transcripts.fa
+
+PROTEIN-CODING TRANSCRIPTS:
+    GRCh38_pc_transcripts.fa
+
+PROTEIN ANALYSIS:
+    GRCh38_proteins.fa
+
+
+============================================================
+NEXT STEP — HISAT2 GENOME INDEX
+============================================================
+
+mkdir -p ../hisat2_index
+
+hisat2-build -p 18 \
+GRCh38.fa \
+../hisat2_index/GRCh38
+
+
+============================================================
+CHECK HISAT2 INDEX
+============================================================
+
+ls -lh ../hisat2_index/
