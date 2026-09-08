@@ -1,88 +1,114 @@
-============================================================
-HUMAN GRCh38 + GENCODE v50 REFERENCE DOWNLOAD
-RNA-seq / HISAT2
-============================================================
+====================================================================
+LUAD RNA-seq COMPLETE REFERENCE + HISAT2 ALIGNMENT WORKFLOW
+Human GRCh38 + GENCODE v50
+6 Paired-End Samples
+====================================================================
 
-1. CREATE REFERENCE DIRECTORY
-============================================================
+
+####################################################################
+# 1. INSTALL HISAT2 AND SAMTOOLS
+####################################################################
+
+sudo apt update
+
+sudo apt install -y hisat2 samtools
+
+hisat2 --version
+
+samtools --version
+
+
+####################################################################
+# 2. CREATE REFERENCE AND OUTPUT DIRECTORIES
+####################################################################
 
 mkdir -p reference
+mkdir -p hisat2_index
+mkdir -p alignment
+mkdir -p bam
+mkdir -p alignment_logs
+
+
+####################################################################
+# 3. ENTER REFERENCE DIRECTORY
+####################################################################
+
 cd reference
 
 
-============================================================
-2. DOWNLOAD GRCh38 PRIMARY ASSEMBLY GENOME
-============================================================
+####################################################################
+# 4. DOWNLOAD GRCh38 PRIMARY ASSEMBLY GENOME
+####################################################################
 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/GRCh38.primary_assembly.genome.fa.gz
 
 
-============================================================
-3. DOWNLOAD GENCODE v50 GENE ANNOTATION (GTF)
-============================================================
+####################################################################
+# 5. DOWNLOAD GENCODE v50 GTF ANNOTATION
+####################################################################
 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz
 
 
-============================================================
-4. DOWNLOAD GENCODE v50 TRANSCRIPT FASTA
-============================================================
+####################################################################
+# 6. DOWNLOAD GENCODE v50 TRANSCRIPT FASTA
+####################################################################
 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.transcripts.fa.gz
 
 
-============================================================
-5. DOWNLOAD GENCODE v50 PROTEIN-CODING TRANSCRIPT FASTA
-============================================================
+####################################################################
+# 7. DOWNLOAD PROTEIN-CODING TRANSCRIPT FASTA
+####################################################################
 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.pc_transcripts.fa.gz
 
 
-============================================================
-6. DOWNLOAD GENCODE v50 PROTEIN TRANSLATIONS
-============================================================
+####################################################################
+# 8. DOWNLOAD PROTEIN TRANSLATION FASTA
+####################################################################
 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.pc_translations.fa.gz
 
 
-============================================================
-7. EXTRACT GENOME FASTA
-============================================================
+####################################################################
+# 9. DECOMPRESS GENOME
+####################################################################
 
 gunzip GRCh38.primary_assembly.genome.fa.gz
 
 
-============================================================
-8. EXTRACT GTF
-============================================================
+####################################################################
+# 10. DECOMPRESS GTF
+####################################################################
 
 gunzip gencode.v50.annotation.gtf.gz
 
 
-============================================================
-9. EXTRACT TRANSCRIPT FASTA
-============================================================
+####################################################################
+# 11. DECOMPRESS TRANSCRIPT FASTA
+####################################################################
 
 gunzip gencode.v50.transcripts.fa.gz
 
 
-============================================================
-10. EXTRACT PROTEIN-CODING TRANSCRIPT FASTA
-============================================================
+####################################################################
+# 12. DECOMPRESS PROTEIN-CODING TRANSCRIPT FASTA
+####################################################################
 
 gunzip gencode.v50.pc_transcripts.fa.gz
 
 
-============================================================
-11. EXTRACT PROTEIN FASTA
-============================================================
+####################################################################
+# 13. DECOMPRESS PROTEIN TRANSLATION FASTA
+####################################################################
 
 gunzip gencode.v50.pc_translations.fa.gz
 
 
-============================================================
-12. RENAME FILES FOR EASY USE
-============================================================
+####################################################################
+# 14. RENAME REFERENCE FILES
+####################################################################
 
 mv GRCh38.primary_assembly.genome.fa GRCh38.fa
 
@@ -95,95 +121,391 @@ mv gencode.v50.pc_transcripts.fa GRCh38_pc_transcripts.fa
 mv gencode.v50.pc_translations.fa GRCh38_proteins.fa
 
 
-============================================================
-13. CHECK DOWNLOADED FILES
-============================================================
+####################################################################
+# 15. CHECK REFERENCE FILES
+####################################################################
 
 ls -lh
 
 
-============================================================
-14. CHECK GENOME
-============================================================
+####################################################################
+# 16. CHECK GRCh38 GENOME
+####################################################################
 
 grep "^>" GRCh38.fa | head
 
 
-============================================================
-15. CHECK GTF
-============================================================
+####################################################################
+# 17. CHECK GTF
+####################################################################
 
 head -n 20 GRCh38.gtf
 
 
-============================================================
-16. COUNT GENES IN GTF
-============================================================
+####################################################################
+# 18. COUNT GENES IN GTF
+####################################################################
 
 grep -v "^#" GRCh38.gtf | \
 awk -F'\t' '$3=="gene"' | wc -l
 
 
-============================================================
-17. CHECK TRANSCRIPT FASTA
-============================================================
+####################################################################
+# 19. RETURN TO PROJECT DIRECTORY
+####################################################################
 
-grep "^>" GRCh38_transcripts.fa | head
-
-
-============================================================
-18. CHECK PROTEIN FASTA
-============================================================
-
-grep "^>" GRCh38_proteins.fa | head
+cd ..
 
 
-============================================================
-FINAL REFERENCE DIRECTORY
-============================================================
-
-reference/
-│
-├── GRCh38.fa
-├── GRCh38.gtf
-├── GRCh38_transcripts.fa
-├── GRCh38_pc_transcripts.fa
-└── GRCh38_proteins.fa
-
-
-============================================================
-FILES USED FOR YOUR RNA-seq WORKFLOW
-============================================================
-
-HISAT2 GENOME INDEX:
-    GRCh38.fa
-
-GENE ANNOTATION / QUANTIFICATION:
-    GRCh38.gtf
-
-TRANSCRIPT-LEVEL ANALYSIS:
-    GRCh38_transcripts.fa
-
-PROTEIN-CODING TRANSCRIPTS:
-    GRCh38_pc_transcripts.fa
-
-PROTEIN ANALYSIS:
-    GRCh38_proteins.fa
-
-
-============================================================
-NEXT STEP — HISAT2 GENOME INDEX
-============================================================
-
-mkdir -p ../hisat2_index
+####################################################################
+# 20. BUILD HISAT2 GENOME INDEX
+#
+# IMPORTANT:
+# This is a GENOME-ONLY index.
+# No GTF splice-site extraction is used.
+####################################################################
 
 hisat2-build -p 18 \
-GRCh38.fa \
-../hisat2_index/GRCh38
+reference/GRCh38.fa \
+hisat2_index/GRCh38
 
 
-============================================================
-CHECK HISAT2 INDEX
-============================================================
+####################################################################
+# 21. CHECK HISAT2 INDEX
+####################################################################
 
-ls -lh ../hisat2_index/
+ls -lh hisat2_index/
+
+
+####################################################################
+# Expected files:
+#
+# GRCh38.1.ht2
+# GRCh38.2.ht2
+# GRCh38.3.ht2
+# GRCh38.4.ht2
+# GRCh38.5.ht2
+# GRCh38.6.ht2
+# GRCh38.7.ht2
+# GRCh38.8.ht2
+####################################################################
+
+
+####################################################################
+# 22. CHECK INPUT FASTQ FILES
+####################################################################
+
+ls -lh *_R1_trimmed2.fastq.gz
+
+ls -lh *_R2_trimmed2.fastq.gz
+
+
+####################################################################
+# Expected input files:
+#
+# Cancer1_R1_trimmed2.fastq.gz
+# Cancer1_R2_trimmed2.fastq.gz
+#
+# Cancer2_R1_trimmed2.fastq.gz
+# Cancer2_R2_trimmed2.fastq.gz
+#
+# Cancer3_R1_trimmed2.fastq.gz
+# Cancer3_R2_trimmed2.fastq.gz
+#
+# Control1_R1_trimmed2.fastq.gz
+# Control1_R2_trimmed2.fastq.gz
+#
+# Control2_R1_trimmed2.fastq.gz
+# Control2_R2_trimmed2.fastq.gz
+#
+# Control3_R1_trimmed2.fastq.gz
+# Control3_R2_trimmed2.fastq.gz
+####################################################################
+
+
+####################################################################
+# 23. ALIGN Cancer1
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Cancer1_R1_trimmed2.fastq.gz \
+-2 Cancer1_R2_trimmed2.fastq.gz \
+-S alignment/Cancer1.sam \
+2> alignment_logs/Cancer1_hisat2.log
+
+
+####################################################################
+# 24. ALIGN Cancer2
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Cancer2_R1_trimmed2.fastq.gz \
+-2 Cancer2_R2_trimmed2.fastq.gz \
+-S alignment/Cancer2.sam \
+2> alignment_logs/Cancer2_hisat2.log
+
+
+####################################################################
+# 25. ALIGN Cancer3
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Cancer3_R1_trimmed2.fastq.gz \
+-2 Cancer3_R2_trimmed2.fastq.gz \
+-S alignment/Cancer3.sam \
+2> alignment_logs/Cancer3_hisat2.log
+
+
+####################################################################
+# 26. ALIGN Control1
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Control1_R1_trimmed2.fastq.gz \
+-2 Control1_R2_trimmed2.fastq.gz \
+-S alignment/Control1.sam \
+2> alignment_logs/Control1_hisat2.log
+
+
+####################################################################
+# 27. ALIGN Control2
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Control2_R1_trimmed2.fastq.gz \
+-2 Control2_R2_trimmed2.fastq.gz \
+-S alignment/Control2.sam \
+2> alignment_logs/Control2_hisat2.log
+
+
+####################################################################
+# 28. ALIGN Control3
+####################################################################
+
+hisat2 -p 18 \
+-x hisat2_index/GRCh38 \
+-1 Control3_R1_trimmed2.fastq.gz \
+-2 Control3_R2_trimmed2.fastq.gz \
+-S alignment/Control3.sam \
+2> alignment_logs/Control3_hisat2.log
+
+
+####################################################################
+# 29. CHECK ALIGNMENT LOGS
+####################################################################
+
+cat alignment_logs/Cancer1_hisat2.log
+
+cat alignment_logs/Cancer2_hisat2.log
+
+cat alignment_logs/Cancer3_hisat2.log
+
+cat alignment_logs/Control1_hisat2.log
+
+cat alignment_logs/Control2_hisat2.log
+
+cat alignment_logs/Control3_hisat2.log
+
+
+####################################################################
+# 30. CONVERT Cancer1 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Cancer1.sam \
+> bam/Cancer1.bam
+
+
+####################################################################
+# 31. SORT Cancer1 BAM
+####################################################################
+
+samtools sort -@ 18 \
+-o bam/Cancer1_sorted.bam \
+bam/Cancer1.bam
+
+
+####################################################################
+# 32. INDEX Cancer1 BAM
+####################################################################
+
+samtools index -@ 18 \
+bam/Cancer1_sorted.bam
+
+
+####################################################################
+# 33. CONVERT Cancer2 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Cancer2.sam \
+> bam/Cancer2.bam
+
+samtools sort -@ 18 \
+-o bam/Cancer2_sorted.bam \
+bam/Cancer2.bam
+
+samtools index -@ 18 \
+bam/Cancer2_sorted.bam
+
+
+####################################################################
+# 34. CONVERT Cancer3 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Cancer3.sam \
+> bam/Cancer3.bam
+
+samtools sort -@ 18 \
+-o bam/Cancer3_sorted.bam \
+bam/Cancer3.bam
+
+samtools index -@ 18 \
+bam/Cancer3_sorted.bam
+
+
+####################################################################
+# 35. CONVERT Control1 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Control1.sam \
+> bam/Control1.bam
+
+samtools sort -@ 18 \
+-o bam/Control1_sorted.bam \
+bam/Control1.bam
+
+samtools index -@ 18 \
+bam/Control1_sorted.bam
+
+
+####################################################################
+# 36. CONVERT Control2 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Control2.sam \
+> bam/Control2.bam
+
+samtools sort -@ 18 \
+-o bam/Control2_sorted.bam \
+bam/Control2.bam
+
+samtools index -@ 18 \
+bam/Control2_sorted.bam
+
+
+####################################################################
+# 37. CONVERT Control3 SAM TO BAM
+####################################################################
+
+samtools view -@ 18 -b \
+alignment/Control3.sam \
+> bam/Control3.bam
+
+samtools sort -@ 18 \
+-o bam/Control3_sorted.bam \
+bam/Control3.bam
+
+samtools index -@ 18 \
+bam/Control3_sorted.bam
+
+
+####################################################################
+# 38. ALIGNMENT QC — FLAGSTAT
+####################################################################
+
+samtools flagstat \
+bam/Cancer1_sorted.bam \
+> alignment_logs/Cancer1_flagstat.txt
+
+samtools flagstat \
+bam/Cancer2_sorted.bam \
+> alignment_logs/Cancer2_flagstat.txt
+
+samtools flagstat \
+bam/Cancer3_sorted.bam \
+> alignment_logs/Cancer3_flagstat.txt
+
+samtools flagstat \
+bam/Control1_sorted.bam \
+> alignment_logs/Control1_flagstat.txt
+
+samtools flagstat \
+bam/Control2_sorted.bam \
+> alignment_logs/Control2_flagstat.txt
+
+samtools flagstat \
+bam/Control3_sorted.bam \
+> alignment_logs/Control3_flagstat.txt
+
+
+####################################################################
+# 39. VIEW ALIGNMENT SUMMARY
+####################################################################
+
+cat alignment_logs/Cancer1_flagstat.txt
+
+cat alignment_logs/Cancer2_flagstat.txt
+
+cat alignment_logs/Cancer3_flagstat.txt
+
+cat alignment_logs/Control1_flagstat.txt
+
+cat alignment_logs/Control2_flagstat.txt
+
+cat alignment_logs/Control3_flagstat.txt
+
+
+####################################################################
+# 40. CHECK FINAL BAM FILES
+####################################################################
+
+ls -lh bam/
+
+
+####################################################################
+# FINAL FILES
+####################################################################
+
+bam/Cancer1_sorted.bam
+bam/Cancer1_sorted.bam.bai
+
+bam/Cancer2_sorted.bam
+bam/Cancer2_sorted.bam.bai
+
+bam/Cancer3_sorted.bam
+bam/Cancer3_sorted.bam.bai
+
+bam/Control1_sorted.bam
+bam/Control1_sorted.bam.bai
+
+bam/Control2_sorted.bam
+bam/Control2_sorted.bam.bai
+
+bam/Control3_sorted.bam
+bam/Control3_sorted.bam.bai
+
+
+####################################################################
+# THESE SORTED BAM FILES WILL BE USED FOR:
+#
+# 1. Gene-level quantification
+# 2. Transcript-level quantification
+# 3. FeatureCounts
+# 4. Differential expression analysis
+# 5. IGV visualization
+# 6. Downstream RNA-seq analysis
+####################################################################
+
+
+====================================================================
+END OF WORKFLOW
+====================================================================
