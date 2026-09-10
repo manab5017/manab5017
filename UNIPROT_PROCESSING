@@ -8,5 +8,185 @@ awk -F'|' '
 {
     print
 }
-' GCH_prot.fa > ENSG_proteins.fa
+' GRCh38_prot.fa > GRCh38_prot_ENSG.fa
 ______________________________-___________________________________________________
+===========================remove duplicate======================================
+awk -F'|' '
+/^>/ {
+    split($3,a,".")
+    print ">" a[1]
+    next
+}
+{
+    print
+}
+' GRCh_prot_ENSG.fa > ENSG_proteins.fa
+
+
+=============================r Script for extracting fasta files pf extracted genes===============
+
+library(Biostrings)
+
+# ============================================================
+# FILES
+# ============================================================
+
+id_file <- "id.txt"
+fasta_file <- "human_prot.fa"
+
+# ============================================================
+# 1. READ ENSG IDs
+# ============================================================
+
+ids <- readLines(id_file)
+
+ids <- gsub("\\|", "", ids)
+ids <- gsub("\\s+", "", ids)
+
+# Keep ENSG IDs only
+ids <- ids[grepl("^ENSG", ids)]
+
+# Remove duplicate ENSG IDs from ID list
+ids <- unique(ids)
+
+cat("Unique ENSG IDs:", length(ids), "\n")
+
+
+# ============================================================
+# 2. READ PROTEIN FASTA
+# ============================================================
+
+proteins <- readAAStringSet(fasta_file)
+
+cat("Total proteins in FASTA:", length(proteins), "\n")
+
+
+# ============================================================
+# 3. EXTRACT ENSG FROM GENCODE HEADER
+# ============================================================
+
+headers <- names(proteins)
+
+ensg <- sub(
+  ".*\\|(ENSG[0-9]+)(\\.[0-9]+)?\\|.*",
+  "\\1",
+  headers
+)
+
+
+# ============================================================
+# 4. FIND MATCHING PROTEINS
+# ============================================================
+
+matched_index <- ensg %in% ids
+
+matched <- proteins[matched_index]
+matched_ensg <- ensg[matched_index]
+
+cat(
+  "Matching protein entries:",
+  length(matched),
+  "\n"
+)
+
+
+# ============================================================
+# 5. REMOVE DUPLICATE ENSG IDs
+#    Keep only ONE protein per ENSG
+# ============================================================
+
+keep_ensg <- !duplicated(matched_ensg)
+
+matched <- matched[keep_ensg]
+matched_ensg <- matched_ensg[keep_ensg]
+
+cat(
+  "After duplicate ENSG removal:",
+  length(matched),
+  "\n"
+)
+
+
+# ============================================================
+# 6. REMOVE DUPLICATE PROTEIN SEQUENCES
+# ============================================================
+
+# Convert protein sequences to character
+protein_sequences <- as.character(matched)
+
+# Identify duplicated sequences
+duplicate_sequence <- duplicated(protein_sequences)
+
+cat(
+  "Duplicate protein sequences:",
+  sum(duplicate_sequence),
+  "\n"
+)
+
+# Remove duplicate sequences
+matched <- matched[!duplicate_sequence]
+matched_ensg <- matched_ensg[!duplicate_sequence]
+
+
+# ============================================================
+# 7. RENAME FASTA HEADERS TO ENSG ONLY
+# ============================================================
+
+names(matched) <- matched_ensg
+
+
+# ============================================================
+# 8. WRITE FINAL FASTA
+# ============================================================
+
+writeXStringSet(
+  matched,
+  filepath = "extracted_proteins_ENSG.fa"
+)
+
+
+# ============================================================
+# 9. CHECK FOR DUPLICATE ENSG IDs
+# ============================================================
+
+duplicate_ensg_final <- duplicated(names(matched))
+
+cat(
+  "Duplicate ENSG IDs in final file:",
+  sum(duplicate_ensg_final),
+  "\n"
+)
+
+
+# ============================================================
+# 10. FIND ENSG IDs WITHOUT PROTEIN
+# ============================================================
+
+found_ids <- unique(matched_ensg)
+
+not_found <- setdiff(ids, found_ids)
+
+writeLines(
+  not_found,
+  "ENSG_without_protein.txt"
+)
+
+
+# ============================================================
+# 11. FINAL SUMMARY
+# ============================================================
+
+cat("\n")
+cat("============================================\n")
+cat("              FINAL SUMMARY\n")
+cat("============================================\n")
+
+cat("Input ENSG IDs             :", length(ids), "\n")
+cat("Total FASTA proteins       :", length(proteins), "\n")
+cat("Matching protein entries   :", sum(matched_index), "\n")
+cat("Final unique proteins      :", length(matched), "\n")
+cat("ENSG without protein       :", length(not_found), "\n")
+cat("Duplicate ENSG IDs         :", sum(duplicate_ensg_final), "\n")
+
+cat("\nFinal FASTA file:\n")
+cat("extracted_proteins_ENSG.fa\n")
