@@ -194,5 +194,5 @@ cat("\nFinal FASTA file:\n")
 sudo apt install ncbiblast+
 makeblastdb -in uniprot_prot.fasta -dbtype prot -out uniprot_prot
 blastp -query extracted_proteins.fasta -db uniprot_prot -out blastp_uniprot.tsv -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs stitle" -evalue 1e-5 -max_target_seqs 10 -num_threads 18
-sed 's/^\(sp\|tr\)|//; s/|.*//' blastp_uniprot.tsv > blastp_cleaned.tsv
+sed -E 's/\tsp\|([^\|]+)\|[^\t]*/\t\1/' blastp_uniprot.tsv > blastp_cleaned.tsv
 sed -i '1i qseqid\tsseqid\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovs' blastp_cleaned.tsv
