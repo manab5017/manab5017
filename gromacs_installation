@@ -1,0 +1,51 @@
+# 1. Check GPU
+nvidia-smi
+
+# 2. CUDA installer
+chmod a+x cuda_13.3.0_610.43.02_linux.run
+sudo sh cuda_13.3.0_610.43.02_linux.run
+
+# 3. Build dependencies
+sudo apt update
+sudo apt install -y build-essential cmake python3-sphinx
+
+# 4. Copy GROMACS
+cp /mnt/c/Users/manab/Downloads/gromacs-2026.3.tar.gz .
+
+# 5. Extract
+tar xvzf gromacs-2026.3.tar.gz
+
+# 6. Enter source
+cd gromacs-2026.3
+
+# 7. Create build directory
+mkdir build
+cd build
+
+# 8. Configure GROMACS with CUDA
+cmake .. \
+-DGMX_BUILD_OWN_FFTW=ON \
+-DREGRESSIONTEST_DOWNLOAD=ON \
+-DGMX_GPU=CUDA \
+-DCUDAToolkit_ROOT=/usr/local/cuda
+
+# 9. Check CPU threads
+nproc
+
+# 10. Compile
+make -j20
+
+# 11. Install
+sudo make install
+
+# 12. Configure environment
+echo 'source /usr/local/gromacs/bin/GMXRC' >> ~/.bashrc
+
+# 13. Reload environment
+source ~/.bashrc
+
+# 14. Verify
+gmx --version
+
+# 15. Verify GPU
+nvidia-smi
