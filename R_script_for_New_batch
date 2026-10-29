@@ -1,0 +1,867 @@
+```r
+# ================================================================
+# COMPLETE DESeq2 ANALYSIS USING SIMULATED RNA-SEQ DATA
+# Biological example: Plant drought stress
+# Comparison: Drought vs Control
+#
+# Simulated dataset:
+#   1000 genes
+#   3 control biological replicates
+#   3 drought biological replicates
+#   50 genes with 4-fold upregulation
+#   50 genes with 4-fold downregulation
+#   900 genes without an intentionally introduced treatment effect
+#
+# DEG criteria:
+#   Adjusted p-value < 0.05
+#   Absolute log2 fold change >= 1
+# ================================================================
+
+
+# ================================================================
+# 1. INSTALL AND LOAD PACKAGES
+# ================================================================
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+if (!requireNamespace("DESeq2", quietly = TRUE)) {
+  BiocManager::install(
+    "DESeq2",
+    ask = FALSE,
+    update = FALSE
+  )
+}
+
+cran_packages <- c("ggplot2", "pheatmap")
+
+for (pkg in cran_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+}
+
+if (!requireNamespace("apeglm", quietly = TRUE)) {
+  BiocManager::install(
+    "apeglm",
+    ask = FALSE,
+    update = FALSE
+  )
+}
+
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(apeglm)
+
+set.seed(123)
+
+
+# ================================================================
+# 2. CREATE OUTPUT DIRECTORY
+# ================================================================
+
+output_dir <- "DESeq2_Simulated_Results"
+
+dir.create(
+  output_dir,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+cat("\nDESeq2 analysis started.\n")
+cat("Output directory:", output_dir, "\n")
+
+
+# ================================================================
+# 3. CREATE SAMPLE METADATA
+# ================================================================
+
+samples <- data.frame(
+  Sample = c("C1", "C2", "C3", "D1", "D2", "D3"),
+  Condition = factor(
+    c(
+      "Control", "Control", "Control",
+      "Drought", "Drought", "Drought"
+    ),
+    levels = c("Control", "Drought")
+  )
+)
+
+rownames(samples) <- samples$Sample
+
+print(samples)
+
+write.csv(
+  samples,
+  file.path(output_dir, "sample_metadata.csv"),
+  row.names = FALSE
+)
+
+
+# ================================================================
+# 4. SIMULATE GENE IDENTIFIERS
+# ================================================================
+
+n_genes <- 1000
+
+gene_ids <- sprintf(
+  "Gene%04d",
+  seq_len(n_genes)
+)
+
+# Genes with known simulated treatment effects
+upregulated_genes <- gene_ids[1:50]
+
+downregulated_genes <- gene_ids[51:100]
+
+non_de_genes <- gene_ids[101:1000]
+
+
+# ================================================================
+# 5. SIMULATE BASELINE GENE EXPRESSION
+# ================================================================
+
+# Simulate different baseline expression levels
+base_mean <- 2 ^ runif(
+  n_genes,
+  min = 3,
+  max = 10
+)
+
+names(base_mean) <- gene_ids
+
+# Expected expression matrix
+# Rows = genes
+# Columns = samples
+
+mu <- matrix(
+  rep(base_mean, times = ncol(samples)),
+  nrow = n_genes,
+  ncol = nrow(samples),
+  dimnames = list(gene_ids, samples$Sample)
+)
+
+
+# ================================================================
+# 6. INTRODUCE KNOWN DIFFERENTIAL EXPRESSION
+# ================================================================
+
+# Fourfold increase under drought
+mu[
+  upregulated_genes,
+  samples$Condition == "Drought"
+] <- mu[
+  upregulated_genes,
+  samples$Condition == "Drought"
+] * 4
+
+# Fourfold decrease under drought
+mu[
+  downregulated_genes,
+  samples$Condition == "Drought"
+] <- mu[
+  downregulated_genes,
+  samples$Condition == "Drought"
+] / 4
+
+
+# ================================================================
+# 7. GENERATE NEGATIVE BINOMIAL RNA-SEQ COUNTS
+# ================================================================
+
+# Dispersion parameter
+dispersion <- 0.15
+
+count_matrix <- matrix(
+  rnbinom(
+    n = length(mu),
+    mu = as.vector(mu),
+    size = 1 / dispersion
+  ),
+  nrow = nrow(mu),
+  ncol = ncol(mu),
+  dimnames = dimnames(mu)
+)
+
+storage.mode(count_matrix) <- "integer"
+
+cat("\nCount matrix dimensions:\n")
+print(dim(count_matrix))
+
+cat("\nFirst 10 genes:\n")
+print(count_matrix[1:10, ])
+
+write.csv(
+  count_matrix,
+  file.path(output_dir, "simulated_raw_counts.csv"),
+  quote = FALSE
+)
+
+
+# ================================================================
+# 8. BASIC QUALITY CHECKS
+# ================================================================
+
+cat("\nMissing values:", sum(is.na(count_matrix)), "\n")
+
+cat("Negative counts:", sum(count_matrix < 0), "\n")
+
+library_sizes <- colSums(count_matrix)
+
+print(library_sizes)
+
+library_size_df <- data.frame(
+  Sample = names(library_sizes),
+  Condition = samples[names(library_sizes), "Condition"],
+  Total_Counts = as.numeric(library_sizes)
+)
+
+write.csv(
+  library_size_df,
+  file.path(output_dir, "library_sizes.csv"),
+  row.names = FALSE
+)
+
+p_library <- ggplot(
+  library_size_df,
+  aes(
+    x = Sample,
+    y = Total_Counts,
+    fill = Condition
+  )
+) +
+  geom_col() +
+  theme_bw(base_size = 12) +
+  labs(
+    title = "RNA-seq Library Sizes",
+    x = "Sample",
+    y = "Total Gene Counts"
+  )
+
+print(p_library)
+
+ggsave(
+  file.path(output_dir, "library_sizes.png"),
+  plot = p_library,
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+
+
+# ================================================================
+# 9. FILTER LOW-COUNT GENES
+# ================================================================
+
+# Retain genes with counts >= 10 in at least 3 samples
+keep <- rowSums(count_matrix >= 10) >= 3
+
+filtered_counts <- count_matrix[keep, , drop = FALSE]
+
+cat("\nGenes before filtering:", nrow(count_matrix), "\n")
+
+cat("Genes after filtering:", nrow(filtered_counts), "\n")
+
+cat("Genes removed:", sum(!keep), "\n")
+
+
+# ================================================================
+# 10. CREATE DESeq2 DATASET
+# ================================================================
+
+dds <- DESeqDataSetFromMatrix(
+  countData = filtered_counts,
+  colData = samples,
+  design = ~ Condition
+)
+
+# Set Control as reference condition
+dds$Condition <- relevel(
+  dds$Condition,
+  ref = "Control"
+)
+
+cat("\nDESeq2 dataset:\n")
+print(dds)
+
+
+# ================================================================
+# 11. RUN DESeq2 ANALYSIS
+# ================================================================
+
+dds <- DESeq(dds)
+
+cat("\nEstimated size factors:\n")
+print(sizeFactors(dds))
+
+cat("\nEstimated dispersions:\n")
+print(head(dispersions(dds)))
+
+cat("\nAvailable model coefficients:\n")
+print(resultsNames(dds))
+
+
+# ================================================================
+# 12. EXPORT NORMALIZED COUNTS
+# ================================================================
+
+normalized_counts <- counts(
+  dds,
+  normalized = TRUE
+)
+
+write.csv(
+  normalized_counts,
+  file.path(output_dir, "normalized_counts.csv"),
+  quote = FALSE
+)
+
+cat("\nNormalized counts exported.\n")
+
+
+# ================================================================
+# 13. EXTRACT DIFFERENTIAL EXPRESSION RESULTS
+# ================================================================
+
+res <- results(
+  dds,
+  contrast = c(
+    "Condition",
+    "Drought",
+    "Control"
+  ),
+  alpha = 0.05
+)
+
+res_df <- as.data.frame(res)
+
+res_df$Gene <- rownames(res_df)
+
+res_df <- res_df[
+  order(res_df$padj, na.last = TRUE),
+]
+
+cat("\nTop 10 genes:\n")
+print(head(res_df, 10))
+
+write.csv(
+  res_df,
+  file.path(output_dir, "DESeq2_all_results.csv"),
+  row.names = FALSE
+)
+
+
+# ================================================================
+# 14. IDENTIFY SIGNIFICANT DIFFERENTIALLY EXPRESSED GENES
+# ================================================================
+
+significant_degs <- subset(
+  res_df,
+  !is.na(padj) &
+    padj < 0.05 &
+    !is.na(log2FoldChange) &
+    abs(log2FoldChange) >= 1
+)
+
+upregulated <- subset(
+  significant_degs,
+  log2FoldChange >= 1
+)
+
+downregulated <- subset(
+  significant_degs,
+  log2FoldChange <= -1
+)
+
+cat("\n====================================\n")
+cat("DIFFERENTIAL EXPRESSION SUMMARY\n")
+cat("====================================\n")
+
+cat(
+  "Genes tested:",
+  sum(!is.na(res_df$pvalue)),
+  "\n"
+)
+
+cat(
+  "Significant DEGs:",
+  nrow(significant_degs),
+  "\n"
+)
+
+cat(
+  "Upregulated genes:",
+  nrow(upregulated),
+  "\n"
+)
+
+cat(
+  "Downregulated genes:",
+  nrow(downregulated),
+  "\n"
+)
+
+write.csv(
+  significant_degs,
+  file.path(output_dir, "Significant_DEGs.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  upregulated,
+  file.path(output_dir, "Upregulated_DEGs.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  downregulated,
+  file.path(output_dir, "Downregulated_DEGs.csv"),
+  row.names = FALSE
+)
+
+
+# ================================================================
+# 15. VARIANCE-STABILIZING TRANSFORMATION
+# ================================================================
+
+vsd <- vst(
+  dds,
+  blind = FALSE
+)
+
+vst_counts <- assay(vsd)
+
+write.csv(
+  vst_counts,
+  file.path(output_dir, "VST_transformed_counts.csv"),
+  quote = FALSE
+)
+
+
+# ================================================================
+# 16. PCA PLOT
+# ================================================================
+
+pca_data <- plotPCA(
+  vsd,
+  intgroup = "Condition",
+  returnData = TRUE
+)
+
+percent_variance <- round(
+  100 * attr(pca_data, "percentVar")
+)
+
+p_pca <- ggplot(
+  pca_data,
+  aes(
+    x = PC1,
+    y = PC2,
+    color = Condition,
+    label = name
+  )
+) +
+  geom_point(size = 4) +
+  geom_text(
+    nudge_y = 0.5,
+    show.legend = FALSE
+  ) +
+  labs(
+    title = "PCA of Simulated RNA-seq Samples",
+    x = paste0(
+      "PC1: ",
+      percent_variance[1],
+      "% variance"
+    ),
+    y = paste0(
+      "PC2: ",
+      percent_variance[2],
+      "% variance"
+    ),
+    color = "Condition"
+  ) +
+  theme_bw(base_size = 13)
+
+print(p_pca)
+
+ggsave(
+  file.path(output_dir, "PCA_plot.png"),
+  plot = p_pca,
+  width = 7,
+  height = 6,
+  dpi = 300
+)
+
+
+# ================================================================
+# 17. HEATMAP OF TOP SIGNIFICANT GENES
+# ================================================================
+
+top_genes <- head(
+  significant_degs$Gene[
+    order(significant_degs$padj)
+  ],
+  30
+)
+
+if (length(top_genes) >= 2) {
+
+  heatmap_matrix <- assay(vsd)[
+    top_genes,
+    ,
+    drop = FALSE
+  ]
+
+  # Standardize each gene across samples
+  heatmap_matrix_scaled <- t(
+    scale(t(heatmap_matrix))
+  )
+
+  # Remove any rows with undefined scaled values
+  valid_rows <- apply(
+    heatmap_matrix_scaled,
+    1,
+    function(x) all(is.finite(x))
+  )
+
+  heatmap_matrix_scaled <- heatmap_matrix_scaled[
+    valid_rows,
+    ,
+    drop = FALSE
+  ]
+
+  annotation_col <- data.frame(
+    Condition = samples$Condition
+  )
+
+  rownames(annotation_col) <- rownames(samples)
+
+  if (nrow(heatmap_matrix_scaled) >= 2) {
+
+    pheatmap(
+      heatmap_matrix_scaled,
+      annotation_col = annotation_col,
+      cluster_rows = TRUE,
+      cluster_cols = TRUE,
+      show_rownames = TRUE,
+      show_colnames = TRUE,
+      fontsize_row = 7,
+      main = "Top Differentially Expressed Genes",
+      filename = file.path(
+        output_dir,
+        "DEG_heatmap.png"
+      ),
+      width = 8,
+      height = 10
+    )
+
+  } else {
+
+    cat(
+      "\nHeatmap skipped: fewer than two usable genes.\n"
+    )
+
+  }
+
+} else {
+
+  cat(
+    "\nHeatmap skipped: fewer than two significant DEGs.\n"
+  )
+
+}
+
+
+# ================================================================
+# 18. VOLCANO PLOT
+# ================================================================
+
+volcano_data <- res_df
+
+# Replace missing adjusted p-values for plotting only
+volcano_data$padj_plot <- volcano_data$padj
+
+volcano_data$padj_plot[
+  is.na(volcano_data$padj_plot)
+] <- 1
+
+# Avoid log10(0)
+volcano_data$padj_plot <- pmax(
+  volcano_data$padj_plot,
+  .Machine$double.xmin
+)
+
+volcano_data$neg_log10_padj <- -log10(
+  volcano_data$padj_plot
+)
+
+volcano_data$Category <- "Not significant"
+
+volcano_data$Category[
+  !is.na(volcano_data$padj) &
+    volcano_data$padj < 0.05 &
+    !is.na(volcano_data$log2FoldChange) &
+    volcano_data$log2FoldChange >= 1
+] <- "Upregulated"
+
+volcano_data$Category[
+  !is.na(volcano_data$padj) &
+    volcano_data$padj < 0.05 &
+    !is.na(volcano_data$log2FoldChange) &
+    volcano_data$log2FoldChange <= -1
+] <- "Downregulated"
+
+volcano_data$Category <- factor(
+  volcano_data$Category,
+  levels = c(
+    "Downregulated",
+    "Not significant",
+    "Upregulated"
+  )
+)
+
+p_volcano <- ggplot(
+  volcano_data,
+  aes(
+    x = log2FoldChange,
+    y = neg_log10_padj,
+    color = Category
+  )
+) +
+  geom_point(
+    alpha = 0.75,
+    size = 1.8
+  ) +
+  geom_vline(
+    xintercept = c(-1, 1),
+    linetype = "dashed"
+  ) +
+  geom_hline(
+    yintercept = -log10(0.05),
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Drought vs Control",
+    x = "Log2 Fold Change",
+    y = "-Log10 Adjusted P-value",
+    color = "Expression Category"
+  ) +
+  theme_bw(base_size = 12)
+
+print(p_volcano)
+
+ggsave(
+  file.path(output_dir, "Volcano_plot.png"),
+  plot = p_volcano,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+# ================================================================
+# 19. SHRINK LOG2 FOLD CHANGES
+# ================================================================
+
+coef_name <- "Condition_Drought_vs_Control"
+
+if (coef_name %in% resultsNames(dds)) {
+
+  res_shrunk <- lfcShrink(
+    dds,
+    coef = coef_name,
+    type = "apeglm"
+  )
+
+  shrunk_df <- as.data.frame(res_shrunk)
+
+  shrunk_df$Gene <- rownames(shrunk_df)
+
+  write.csv(
+    shrunk_df,
+    file.path(
+      output_dir,
+      "DESeq2_shrunken_log2FC.csv"
+    ),
+    row.names = FALSE
+  )
+
+  cat("\nFold-change shrinkage completed.\n")
+
+} else {
+
+  cat(
+    "\nFold-change shrinkage skipped.\n",
+    "Inspect resultsNames(dds) for the correct coefficient.\n"
+  )
+
+}
+
+
+# ================================================================
+# 20. COMPARE RESULTS WITH SIMULATED TRUTH
+# ================================================================
+
+truth <- data.frame(
+  Gene = gene_ids,
+  True_Status = ifelse(
+    gene_ids %in% upregulated_genes,
+    "Upregulated",
+    ifelse(
+      gene_ids %in% downregulated_genes,
+      "Downregulated",
+      "Unchanged"
+    )
+  )
+)
+
+comparison <- merge(
+  truth,
+  res_df[
+    ,
+    c(
+      "Gene",
+      "log2FoldChange",
+      "padj"
+    )
+  ],
+  by = "Gene",
+  all.x = TRUE
+)
+
+comparison$Detected <- (
+  !is.na(comparison$padj) &
+    comparison$padj < 0.05 &
+    !is.na(comparison$log2FoldChange) &
+    abs(comparison$log2FoldChange) >= 1
+)
+
+comparison$Predicted_Status <- ifelse(
+  !comparison$Detected,
+  "Not detected",
+  ifelse(
+    comparison$log2FoldChange > 0,
+    "Upregulated",
+    "Downregulated"
+  )
+)
+
+write.csv(
+  comparison,
+  file.path(
+    output_dir,
+    "simulation_truth_comparison.csv"
+  ),
+  row.names = FALSE
+)
+
+confusion_table <- table(
+  True = comparison$True_Status,
+  Predicted = comparison$Predicted_Status
+)
+
+print(confusion_table)
+
+write.csv(
+  as.data.frame.matrix(confusion_table),
+  file.path(
+    output_dir,
+    "simulation_detection_summary.csv"
+  )
+)
+
+
+# ================================================================
+# 21. CREATE FINAL SUMMARY
+# ================================================================
+
+summary_table <- data.frame(
+  Metric = c(
+    "Total simulated genes",
+    "Genes retained after filtering",
+    "Genes tested by DESeq2",
+    "Significant DEGs",
+    "Upregulated DEGs",
+    "Downregulated DEGs",
+    "Genes assigned simulated upregulation",
+    "Genes assigned simulated downregulation"
+  ),
+  Value = c(
+    nrow(count_matrix),
+    nrow(filtered_counts),
+    sum(!is.na(res_df$pvalue)),
+    nrow(significant_degs),
+    nrow(upregulated),
+    nrow(downregulated),
+    length(upregulated_genes),
+    length(downregulated_genes)
+  )
+)
+
+print(summary_table)
+
+write.csv(
+  summary_table,
+  file.path(
+    output_dir,
+    "DESeq2_analysis_summary.csv"
+  ),
+  row.names = FALSE
+)
+
+
+# ================================================================
+# 22. FINAL REPORT
+# ================================================================
+
+cat("\n")
+cat("================================================\n")
+cat("DESeq2 ANALYSIS COMPLETED SUCCESSFULLY\n")
+cat("================================================\n")
+
+cat(
+  "Total simulated genes:",
+  nrow(count_matrix),
+  "\n"
+)
+
+cat(
+  "Genes retained after filtering:",
+  nrow(filtered_counts),
+  "\n"
+)
+
+cat(
+  "Genes tested:",
+  sum(!is.na(res_df$pvalue)),
+  "\n"
+)
+
+cat(
+  "Significant DEGs:",
+  nrow(significant_degs),
+  "\n"
+)
+
+cat(
+  "Upregulated genes:",
+  nrow(upregulated),
+  "\n"
+)
+
+cat(
+  "Downregulated genes:",
+  nrow(downregulated),
+  "\n"
+)
+
+cat(
+  "Results saved in:",
+  normalizePath(output_dir),
+  "\n"
+)
+
+cat("================================================\n")
+```
